@@ -1,0 +1,138 @@
+:root {
+  --bg-color: #f4f4f4;
+  --text-color: #333333;
+  --card-color: #ffffff;
+  --button-color: #333333;
+  --button-text: #ffffff;
+  --border-color: #cccccc;
+  --muted-color: #666666;
+}
+
+body.dark {
+  --bg-color: #181818;
+  --text-color: #f4f4f4;
+  --card-color: #292929;
+  --button-color: #eeeeee;
+  --button-text: #181818;
+  --border-color: #555555;
+  --muted-color: #bbbbbb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  line-height: 1.6;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+header {
+  text-align: center;
+  padding: 20px;
+}
+
+header h1 {
+  margin-bottom: 5px;
+}
+
+header p {
+  color: var(--muted-color);
+}
+
+main {
+  max-width: 700px;
+  margin: 20px auto;
+  padding: 25px;
+  background-color: var(--card-color);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+textarea {
+  display: block;
+  width: 100%;
+  min-height: 180px;
+  padding: 12px;
+  font-family: Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text-color);
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  resize: vertical;
+}
+
+textarea:focus {
+  outline: 2px solid #528bff;
+  outline-offset: 2px;
+}
+
+#char-count,
+#word-count {
+  margin: 10px 0;
+}
+
+.warning {
+  color: orange;
+}
+
+.over {
+  color: red;
+  font-weight: bold;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+button {
+  padding: 10px 18px;
+  color: var(--button-text);
+  background-color: var(--button-color);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+button:hover {
+  opacity: 0.8;
+}
+
+button:focus-visible {
+  outline: 2px solid #528bff;
+  outline-offset: 3px;
+}
+
+footer {
+  margin-top: 30px;
+  text-align: center;
+  color: var(--muted-color);
+}
+
+@media (max-width: 600px) {
+  body {
+    padding: 10px;
+  }
+
+  main {
+    padding: 16px;
+  }
+}

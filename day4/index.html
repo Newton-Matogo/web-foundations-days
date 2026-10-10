@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Day 4 - Notes Toolkit</title>
+
+    <link rel="stylesheet" href="style.css" />
+    <script src="script.js" defer></script>
+  </head>
+
+  <body>
+    <header>
+      <h1>Notes Toolkit</h1>
+      <p>Write, save, and manage your notes.</p>
+    </header>
+
+    <main>
+      <label for="note-text">Your note</label>
+
+      <textarea
+        id="note-text"
+        maxlength="200"
+        placeholder="Start typing your note here..."
+      ></textarea>
+
+      <p id="char-count">0 / 200 characters</p>
+      <p id="word-count">0 words</p>
+
+      <div class="buttons">
+        <button id="clear-btn" type="button">Clear note</button>
+        <button id="theme-toggle" type="button">Dark mode</button>
+      </div>
+    </main>
+
+    <footer>
+      <p>&copy; 2026 Notes Toolkit</p>
+    </footer>
+  </body>
+</html>
