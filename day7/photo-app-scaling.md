@@ -1,203 +1,252 @@
-# SnapShare Photo App Scaling Plan
+# Day 7 Assignment: Scaling SnapShare
 
 ## 1. Assumptions
 
-SnapShare is a photo-sharing application where users upload photos and scroll through a feed of photos from people they follow.
+SnapShare is a photo-sharing application where users upload photos and view a feed of photos posted by people they follow.
 
-The capacity estimates use these assumptions:
+The following assumptions are used for the estimates:
 
 - Registered users: 10 million.
 - Daily active users: 10% of registered users.
-- Each active user uploads one photo per day.
-- Each active user views 50 feed pages per day.
-- Each original photo averages 2 MB.
-- Each photo has one thumbnail averaging 50 KB.
-- Average traffic is distributed across 24 hours (86,400 seconds).
-- Peak traffic is estimated at five times the average rate.
+- Each daily active user uploads one photo per day.
+- Each daily active user views 50 feed pages per day.
+- Average original photo size: 2 MB.
+- Each original photo has one thumbnail of 50 KB.
+- Average traffic is spread evenly across 24 hours.
+- Peak traffic is estimated to be five times the average traffic.
 - A year contains 365 days.
 - Storage calculations use decimal units: 1 GB = 1,000 MB and 1 TB = 1,000 GB.
-- Storage estimates exclude replicas, backups, metadata, and future image versions.
+- Storage estimates exclude backups, database records, replicas, and other overhead.
 
 ## 2. Capacity Estimates
 
 ### Daily active users
 
-Daily active users (DAU) are 10% of 10 million registered users:
+Daily active users are 10% of the 10 million registered users.
 
 10,000,000 × 0.10 = 1,000,000 daily active users.
 
-### Photo uploads per second
+### Uploads per second
+
+Each daily active user uploads one photo.
 
 Daily uploads:
 
-1,000,000 active users × 1 photo = 1,000,000 uploads/day.
+1,000,000 × 1 = 1,000,000 photos per day.
 
 Average uploads per second:
 
-1,000,000 ÷ 86,400 ≈ 11.57 uploads/second.
+1,000,000 ÷ 86,400 = approximately 11.57 uploads per second.
 
-Estimated peak uploads per second:
+Peak uploads per second:
 
-11.57 × 5 ≈ 57.87 uploads/second.
+11.57 × 5 = approximately 57.87 uploads per second.
 
 ### Feed views per second
 
-Daily feed page views:
+Each daily active user views 50 feed pages per day.
 
-1,000,000 active users × 50 pages = 50,000,000 page views/day.
+Daily feed views:
+
+1,000,000 × 50 = 50,000,000 feed pages per day.
 
 Average feed views per second:
 
-50,000,000 ÷ 86,400 ≈ 578.70 page views/second.
+50,000,000 ÷ 86,400 = approximately 578.70 views per second.
 
-Estimated peak feed views per second:
+Peak feed views per second:
 
-578.70 × 5 ≈ 2,893.52 page views/second.
+578.70 × 5 = approximately 2,893.52 views per second.
 
-A feed page view may request multiple photos, so actual image delivery traffic can be much higher than the page-view rate.
+These figures represent feed page requests, not individual image downloads. A single feed page can display multiple photos.
 
-### Photo storage per year
+### Annual photo storage
 
-Original photos:
+Original photo storage:
 
-1,000,000 photos/day × 2 MB × 365 days = 730,000,000 MB = 730 TB/year.
+1,000,000 × 2 MB × 365 = 730,000,000 MB = 730 TB per year.
 
-Thumbnails:
+Thumbnail storage:
 
-1,000,000 thumbnails/day × 0.05 MB × 365 days = 18,250,000 MB = 18.25 TB/year.
+1,000,000 × 0.05 MB × 365 = 18,250,000 MB = 18.25 TB per year.
 
-Total new photo storage:
+Total annual image storage:
 
-730 TB + 18.25 TB = 748.25 TB/year.
+730 TB + 18.25 TB = 748.25 TB per year.
 
-This estimate represents newly stored original photos and thumbnails. It does not include backups, replicas, metadata, or other storage overhead.
+This is the amount of new storage added in one year, excluding backups, replicas, and other overhead.
 
 ## 3. Read-Heavy or Write-Heavy?
 
-SnapShare is read-heavy because it handles 50 million feed page views per day compared with 1 million photo uploads per day. This is a ratio of approximately 50 feed page views per upload.
+SnapShare is read-heavy because it receives 50 million feed page views per day compared with 1 million photo uploads per day. That is approximately 50 feed views for every upload.
 
-The architecture should prioritize fast feed delivery using a CDN, caching, and a database read replica. Upload processing should also be reliable, but thumbnail generation can happen asynchronously so that users do not have to wait for the thumbnail before the upload is accepted.
+The architecture must prioritize fast reads using a CDN, a shared cache, and a database read replica. The application should also scale horizontally by adding app servers when traffic increases. Uploads should be reliable, while thumbnail generation should happen asynchronously so users do not have to wait for image processing to finish.
 
-## 4. Why Photos Should Not Be Stored in the Database
+## 4. Why Photos Belong in Object Storage
 
-Photo files should be stored in object storage rather than directly inside the relational database. Large binary files can increase database size, backups, and restore times, and can make database performance and scaling more difficult. Object storage is designed to store large files durably and cost-effectively, while the database stores photo metadata, ownership, captions, timestamps, and object-storage keys. A CDN can then cache and deliver the image files closer to users.
+Photos should be stored in object storage rather than directly inside database tables. Large binary files increase database size, complicate backups and restores, and can reduce the efficiency of database operations.
+
+Object storage is designed for large files and can scale independently of the database. The database should store metadata such as the photo owner, caption, upload time, processing status, and object-storage key. The CDN can then cache and deliver image files efficiently to users.
 
 ## 5. Architecture Diagram
 
 ```text
-                    +----------------------+
-                    |        Users         |
-                    | Uploads and Feed     |
-                    +----------+-----------+
-                               |
-                               v
-                    +----------------------+
-                    |         CDN          |
-                    | Cache and deliver    |
-                    | photos and thumbnails|
-                    +----------+-----------+
-                               |
-                      Cache miss / API
-                               |
-                               v
-                    +----------------------+
-                    |    Load Balancer     |
-                    +----------+-----------+
-                               |
-                 +-------------+-------------+
-                 |             |             |
-                 v             v             v
-             +--------+    +--------+    +--------+
-             | App 1  |    | App 2  |    | App N  |
-             +---+----+    +---+----+    +---+----+
-                 |             |             |
-                 +-------------+-------------+
-                               |
-                 +-------------+----------------+
-                 |                              |
-                 v                              v
-        +------------------+          +-------------------+
-        | Shared Cache     |          | Primary Database  |
-        | Feed data and    |          | Metadata and      |
-        | frequently used  |          | relationships     |
-        | records          |          +---------+---------+
-        +------------------+                    |
+                         +----------------------+
+                         |         Users        |
+                         | Upload photos / Feed |
+                         +----------+-----------+
+                                    |
+                                    v
+                         +----------------------+
+                         |         CDN          |
+                         | Cached photos and    |
+                         | thumbnails           |
+                         +----------+-----------+
+                                    |
+                                    | API requests
+                                    v
+                         +----------------------+
+                         |    Load Balancer     |
+                         +----------+-----------+
+                                    |
+                     +--------------+--------------+
+                     |              |              |
+                     v              v              v
+                +---------+    +---------+    +---------+
+                | App     |    | App     |    | App     |
+                | Server 1|    | Server 2|    | Server N|
+                +----+----+    +----+----+    +----+----+
+                     |              |              |
+                     +--------------+--------------+
+                                    |
+                         +----------+----------+
+                         |                     |
+                         v                     v
+                +----------------+    +-------------------+
+                | Shared Cache   |    | Primary Database  |
+                | Feed data and  |    | Users, follows,   |
+                | popular records|    | photo metadata    |
+                +----------------+    +---------+---------+
+                                                |
                                                 | Replication
                                                 v
                                       +-------------------+
-                                      | Database Read     |
+                                      | Database Read    |
                                       | Replica           |
                                       +-------------------+
 
-       Upload processing:
-       +------------------+
-       | App Server       |
-       +--------+---------+
-                |
-                v
-       +------------------+       +----------------------+
-       | Object Storage   |       | Message Queue        |
-       | Original Photos  |       | Thumbnail Jobs       |
-       +------------------+       +----------+-----------+
-                                             |
-                                             v
-                                  +----------------------+
-                                  | Thumbnail Worker     |
-                                  +----------+-----------+
-                                             |
-                                             v
-                                  +----------------------+
-                                  | Object Storage       |
-                                  | Thumbnails           |
-                                  +----------------------+
+                    PHOTO UPLOAD AND THUMBNAIL PROCESSING
+
+                +-------------------+
+                | App Server        |
+                +---------+---------+
+                          |
+                          v
+                +-------------------+
+                | Object Storage    |
+                | Original Photos   |
+                +-------------------+
+                          |
+                          | Photo metadata saved
+                          v
+                +-------------------+
+                | Primary Database  |
+                +-------------------+
+
+                +-------------------+
+                | App Server        |
+                +---------+---------+
+                          |
+                          | Publish thumbnail job
+                          v
+                +-------------------+
+                | Message Queue     |
+                +---------+---------+
+                          |
+                          | Worker consumes job
+                          v
+                +-------------------+
+                | Thumbnail Worker  |
+                +---------+---------+
+                          |
+                          | Read original photo
+                          v
+                +-------------------+
+                | Object Storage    |
+                | Original Photos   |
+                +-------------------+
+                          |
+                          | Generated thumbnail
+                          v
+                +-------------------+
+                | Object Storage    |
+                | Thumbnails        |
+                +-------------------+
+                          |
+                          | Update processing status
+                          v
+                +-------------------+
+                | Primary Database  |
+                +-------------------+
 ```
 
 ## 6. Components and the Problems They Solve
 
-- **CDN:** Caches and delivers photos and thumbnails from locations closer to users, reducing latency and origin-server bandwidth.
-- **Load balancer:** Distributes incoming application requests across healthy app servers to avoid overloading a single server.
-- **App servers:** Handle API requests, authentication, upload coordination, feed generation, and business logic.
-- **Shared cache:** Stores frequently requested feed data and metadata to reduce repeated database queries and improve response times.
-- **Primary database:** Stores structured information such as user accounts, follow relationships, photo metadata, captions, and storage keys.
-- **Database read replica:** Handles eligible read queries so that feed-related database traffic does not all reach the primary database.
-- **Object storage:** Stores original photo files and generated thumbnails separately from the relational database.
-- **Message queue:** Buffers thumbnail-generation jobs so that uploads can be accepted without waiting for background processing.
-- **Thumbnail worker:** Processes queued jobs, creates smaller image versions, and stores the resulting thumbnails in object storage.
+- **CDN:** Caches and serves photos and thumbnails close to users, reducing latency, origin traffic, and bandwidth costs.
+- **Load balancer:** Distributes incoming requests across healthy app servers so that no single server becomes a bottleneck.
+- **App servers:** Handle authentication, API requests, upload validation, feed generation, and application business logic.
+- **Shared cache:** Stores frequently requested feed data and metadata to reduce repeated database queries.
+- **Primary database:** Stores structured data such as users, follow relationships, photo metadata, captions, storage keys, and processing status.
+- **Database read replica:** Handles eligible read queries to reduce the primary database's workload and improve read capacity.
+- **Object storage:** Stores original image files and generated thumbnails without filling database tables with large binary files.
+- **Message queue:** Buffers thumbnail-generation jobs and separates upload handling from slower background processing.
+- **Thumbnail worker:** Consumes queued jobs, creates smaller image versions, stores the thumbnails in object storage, and updates processing status in the primary database.
 
 ## 7. Step-by-Step Photo Upload Flow
 
-1. A user selects a photo and submits it through the application.
-2. The request reaches the load balancer, which forwards it to a healthy app server.
-3. The app server authenticates the user and validates the upload, including its file type and size.
-4. The original photo is stored in object storage, and the system obtains its storage key.
-5. The app server saves the photo metadata and storage key in the primary database.
+1. A user selects a photo and submits an upload request to SnapShare.
+2. The load balancer forwards the request to a healthy app server.
+3. The app server authenticates the user and validates the file type, size, and upload permissions.
+4. The app server stores the original photo in object storage and obtains its object key.
+5. The app server creates a photo metadata record in the primary database, including the owner, caption, object key, upload time, and processing status.
 6. The app server publishes a thumbnail-generation job to the message queue.
-7. The application responds to the user that the upload has been accepted; the thumbnail may still be processing.
-8. A thumbnail worker retrieves the queued job and downloads or reads the original photo from object storage.
-9. The worker generates a thumbnail and saves it in object storage.
-10. The worker updates the photo's processing status or metadata in the database if necessary.
-11. The CDN can deliver the original photo and thumbnail to users, caching them according to the chosen cache policy.
+7. The application confirms that the upload has been accepted. The thumbnail can still be processing in the background.
+8. A thumbnail worker retrieves the job from the queue.
+9. The worker reads the original photo from object storage and generates a smaller thumbnail.
+10. The worker saves the thumbnail in object storage.
+11. The worker updates the photo's processing status in the primary database so the application knows the thumbnail is ready.
+12. The CDN serves the original photo and thumbnail to users, caching them according to the configured cache policy.
 
-The queue should support retries for transient failures, and thumbnail jobs should be idempotent so that retrying a job does not create inconsistent results.
+The worker should retry temporary failures, and thumbnail jobs should be idempotent so that retrying a job does not create inconsistent results. If thumbnail processing fails permanently, the system should record the failure and allow the job to be retried or investigated.
 
-## 8. Design Trade-Offs
+## 8. Architectural Trade-Offs
 
-### Trade-off 1: CDN caching versus freshness
+### Trade-Off 1: Eventual Consistency Versus Real-Time Feed Updates
 
-A CDN reduces image delivery latency and bandwidth costs, but cached content can become stale when a photo changes or is removed. SnapShare can use versioned image URLs and cache invalidation for content that must be updated or removed promptly.
+Using a queue to update feeds and process thumbnails improves scalability because the upload request does not have to wait for every downstream task. However, a newly uploaded photo may not immediately appear in every follower's feed, and its thumbnail may take time to become available.
 
-### Trade-off 2: Asynchronous thumbnails versus immediate availability
+SnapShare can accept eventual consistency for ordinary feed updates while showing the uploading user a clear processing state. For actions that require immediate confirmation, such as displaying the newly uploaded photo on the owner's profile, the application can read from the primary database and show the original image while the thumbnail is being generated.
 
-Using a queue and background workers makes uploads faster and allows thumbnail processing to scale independently. However, a thumbnail may not be available immediately, and queue backlogs or worker failures can delay processing. The application should show a processing state and retry failed jobs.
+### Trade-Off 2: CDN Caching Versus Freshness
 
-### Trade-off 3: Read replicas versus consistency
+CDN caching makes popular photos faster to load and reduces bandwidth costs. However, a cached image may remain visible after its source has changed or been deleted.
 
-A read replica increases read capacity and reduces load on the primary database, but replication lag can cause recently updated data to be temporarily missing from replica queries. The application can send critical read-after-write requests to the primary database and use the replica for less time-sensitive feed reads.
+SnapShare can use versioned image URLs, appropriate cache lifetimes, and CDN invalidation when content is changed or removed. Private photos should also use suitable access controls so that public caching does not expose restricted content.
 
-### Trade-off 4: Object storage versus database simplicity
+### Trade-Off 3: Read Replicas Versus Strong Consistency
 
-Object storage is well suited to large image files and scales independently from database records, but it introduces a separate system that must be managed. The application must handle storage keys, permissions, failed uploads, and cleanup of files whose database records are deleted.
+A database read replica distributes read traffic and helps protect the primary database from heavy feed queries. However, replication lag can mean that a recently uploaded photo or updated profile does not appear immediately in replica-based queries.
+
+SnapShare can direct critical read-after-write operations to the primary database while sending less time-sensitive feed and browsing queries to the read replica.
+
+### Trade-Off 4: Asynchronous Processing Versus Immediate Thumbnail Availability
+
+Background thumbnail generation allows uploads to be accepted quickly and lets thumbnail workers scale independently. However, thumbnails may be delayed when the queue becomes large or workers fail.
+
+SnapShare should monitor queue length, scale workers based on demand, retry temporary failures, and display a processing indicator until the thumbnail is ready.
 
 ## 9. Conclusion
 
-SnapShare should use a horizontally scalable application tier, a shared cache, a primary database with a read replica, object storage, a CDN, and a queue-backed thumbnail-processing service. With an estimated 1 million daily active users, 50 million feed page views per day, and approximately 748.25 TB of new image storage per year, the design prioritizes read performance while keeping image processing asynchronous and storage scalable.
+SnapShare has an estimated one million daily active users, approximately 11.57 average uploads per second, 578.70 average feed views per second, and 748.25 TB of new image storage per year.
+
+Because the workload is read-heavy, the system should prioritize CDN delivery, caching, horizontally scalable app servers, and database read replicas. Original photos and thumbnails belong in object storage, while a message queue and background workers handle thumbnail generation reliably without slowing down uploads.
