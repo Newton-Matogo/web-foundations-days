@@ -1,0 +1,7 @@
+# Day 8 Assignment Reflection
+
+The most difficult concept in this assignment was understanding how to prevent two customers from buying the same seat at the same time. Initially, I thought checking whether a seat was available would be enough. However, two requests could check the same seat before either request completes, which could result in a double booking. I learned that the system needs concurrency-safe database operations, temporary reservation holds, and a reliable payment process. Breaking the problem into smaller steps helped me understand how the reservation and checkout processes should work together.
+
+One part of the capstone project I would like to improve is the system design and handling of high traffic. I would review any feedback received on the capstone and use it to identify areas where the architecture, API design, or error handling needs improvement. I would also test the system with different levels of traffic to identify bottlenecks and check that its behavior remains correct when multiple users make requests at the same time.
+
+Next, I want to learn more about database transactions, API security, and automated testing. I would like to practise implementing a small reservation feature, write tests for simultaneous booking attempts, and simulate payment failures. This would help me move from understanding a design on paper to implementing and testing a reliable software system.
